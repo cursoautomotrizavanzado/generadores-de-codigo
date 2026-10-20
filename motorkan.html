@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<script src="pin.js"></script>
+<title>MotorKan · Generador de licencias</title>
+<style>
+:root{--bg:#0b1220;--card:#111a2e;--card2:#16213a;--line:#24324f;--tx:#e5ecf8;--mu:#93a4c3;--ac:#f59e0b;--ok:#22c55e;--bad:#ef4444;--bl:#3b82f6}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,Segoe UI,Roboto,sans-serif;padding:16px}
+.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 10px;color:var(--ac)}
+.sub{color:var(--mu);font-size:13px;margin-top:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.col{display:flex;flex-direction:column;gap:10px}
+label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--mu);flex:1;min-width:160px}
+input,textarea,select{background:#0a1324;border:1px solid var(--line);border-radius:10px;color:var(--tx);padding:10px;font:inherit;width:100%}
+textarea{font-family:ui-monospace,Consolas,monospace;font-size:12px;resize:vertical}
+button,.btn{background:var(--card2);border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:10px 14px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block}
+button:hover,.btn:hover{border-color:var(--ac)}
+button.p{background:var(--ac);color:#1a1204;border-color:var(--ac)}
+button.ok,.btn.ok{background:#16a34a;border-color:#16a34a;color:#fff}
+button.d{background:#7f1d1d;border-color:#b91c1c}
+button:disabled{opacity:.45;cursor:not-allowed}
+.msg{font-size:13px;margin-top:6px;min-height:18px}.msg.ok{color:#86efac}.msg.bad{color:#fca5a5}
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:800;background:var(--card2);border:1px solid var(--line)}
+.badge.ok{background:rgba(34,197,94,.2);color:#86efac;border-color:rgba(34,197,94,.5)}
+.badge.bad{background:rgba(239,68,68,.2);color:#fca5a5;border-color:rgba(239,68,68,.5)}
+.badge.warn{background:rgba(245,158,11,.2);color:#fcd34d;border-color:rgba(245,158,11,.5)}
+.out{background:#0a1324;border:1px dashed var(--ac);border-radius:12px;padding:12px;margin-top:10px;word-break:break-all;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:4px 10px;font-size:13.5px;margin:8px 0}.kv b{color:var(--mu);font-weight:600}
+.hist{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.hist button{text-align:left;font-weight:600;font-size:13px}
+.warnb{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.5);border-radius:10px;padding:10px;font-size:13px;color:#fcd34d}
+details summary{cursor:pointer;color:var(--mu);font-size:13px}
+@media (max-width:560px){.kv{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="./" style="color:#93a4c3;font-size:14px;text-decoration:none">← Generadores de Código</a>
+  <div><h1>🔑 MotorKan · Generador de licencias</h1>
+  <div class="sub">Herramienta privada del proveedor. No la publiques junto con la app. Todo se firma en este navegador; la clave privada nunca sale de tu equipo.</div></div>
+
+  <!-- 1. CLAVES -->
+  <div class="card" id="c-keys">
+    <h2>1 · Tus claves de firma</h2>
+    <div class="row">
+      <button class="p" id="k-new">Crear mis claves (solo la primera vez)</button>
+      <label style="max-width:340px">Cargar mi clave privada guardada<input type="file" id="k-file" accept="application/json,.json"></label>
+      <span id="k-state" class="badge warn">Sin clave cargada</span>
+    </div>
+    <div class="msg" id="k-msg"></div>
+    <div id="k-pub" hidden>
+      <div class="sub" style="margin-top:6px">Pega esto en <b>js/cloud-config.js</b> dentro de <code>TF_LICENSE → publicKey</code> y publica la app de nuevo:</div>
+      <textarea id="k-pubtxt" rows="3" readonly></textarea>
+      <div class="row" style="margin-top:6px"><button id="k-copy">Copiar clave pública</button></div>
+    </div>
+    <div class="warnb" style="margin-top:10px">Guarda el archivo <b>motorkan-clave-privada.json</b> en un lugar seguro (nube privada + USB). Si lo pierdes no podrás firmar más códigos y habría que cambiar la clave de la app; si alguien lo consigue, podría fabricar licencias.</div>
+  </div>
+
+  <!-- 2. NUBE -->
+  <div class="card" id="c-cloud">
+    <h2>2 · Servidor de licencias (Firebase) <span id="f-state" class="badge warn">Sin conectar</span></h2>
+    <div class="sub" style="margin-bottom:8px">Opcional pero recomendado: permite suspender, revocar y renovar a distancia. Usa la cuenta de administrador cuyo UID pegaste en las reglas de Firestore.</div>
+    <label><span>Pega aquí el bloque <code>firebaseConfig</code> de tu proyecto (o escribe apiKey y projectId)</span>
+      <textarea id="f-cfg" rows="3" placeholder='apiKey: "AIza…", projectId: "motorkan-xxxx", …'></textarea></label>
+    <div class="row" style="margin-top:8px">
+      <label>Correo de administrador<input id="f-mail" type="email" autocomplete="username"></label>
+      <label>Contraseña<input id="f-pass" type="password" autocomplete="current-password"></label>
+      <button class="p" id="f-go">Conectar</button>
+    </div>
+    <div class="msg" id="f-msg"></div>
+  </div>
+
+  <!-- 3. NUEVA LICENCIA -->
+  <div class="card" id="c-new">
+    <h2>3 · Nueva licencia</h2>
+    <div class="row">
+      <label>ID del equipo (lo envía el cliente)<input id="n-dev" placeholder="XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off"></label>
+      <label>Cliente / taller<input id="n-name" placeholder="Taller Los Andes"></label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label>WhatsApp del cliente (opcional, con código de país)<input id="n-wa" inputmode="numeric" placeholder="584141234567"></label>
+      <label>Vigencia del código de activación (días)<input id="n-days" type="number" min="1" value="30"></label>
+      <label>Licencia en el servidor<select id="n-valid"><option value="perm">Permanente (pago único)</option><option value="date">Hasta una fecha…</option></select></label>
+      <label id="n-date-l" hidden>Hasta<input id="n-date" type="date"></label>
+    </div>
+    <label style="margin-top:8px">Dirección de la app (https)<input id="n-url" placeholder="https://motorkan.pages.dev/"></label>
+    <div class="row" style="margin-top:10px"><button class="p" id="n-go">Generar código y enlace</button></div>
+    <div class="msg" id="n-msg"></div>
+    <div id="n-out" hidden>
+      <div class="sub">Enlace de activación (se abre en el navegador del teléfono/PC del cliente):</div>
+      <div class="out" id="n-link"></div>
+      <div class="sub" style="margin-top:8px">Código (por si el enlace no abre dentro de la app instalada, p. ej. iPhone; se pega en Licencia → Activar):</div>
+      <div class="out" id="n-code"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="n-cl">Copiar enlace</button><button id="n-cc">Copiar código</button><a class="btn ok" id="n-wa-btn" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. ADMINISTRAR -->
+  <div class="card" id="c-adm">
+    <h2>4 · Administrar una licencia</h2>
+    <div class="row">
+      <label>ID de licencia o código completo<input id="a-id" placeholder="Pega el código MK1… o el ID de licencia" autocomplete="off"></label>
+      <button id="a-find">Buscar</button>
+    </div>
+    <div class="msg" id="a-msg"></div>
+    <div id="a-box" hidden>
+      <div class="kv" id="a-kv"></div>
+      <div class="row">
+        <button id="a-susp">Suspender</button><button class="ok" id="a-react">Reactivar</button><button class="d" id="a-rev">Revocar</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label style="max-width:220px">Renovar hasta<input id="a-date" type="date"></label>
+        <button id="a-ext">Guardar fecha</button><button id="a-perm">Hacer permanente</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label style="max-width:260px">Cambiar de equipo (nuevo ID)<input id="a-dev" placeholder="XXXX-XXXX-XXXX"></label>
+        <button id="a-chdev">Mover a ese equipo</button>
+      </div>
+      <div class="sub" style="margin-top:6px">Al mover una licencia a otro equipo, genera un código nuevo en el paso 3 con el mismo ID de equipo nuevo y registra el cambio aquí.</div>
+    </div>
+    <details style="margin-top:12px"><summary>Historial en este navegador</summary><div class="hist" id="a-hist"></div></details>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var DAY = 86400000;
+  var priv = null, pubJwk = null, tok = '', fb = null, adminPass = '', cur = null;
+  var qs = new URLSearchParams(location.search);
+  var DEV = qs.get('api') || '';   /* solo para pruebas: base de un servidor simulado */
+  var IDT = DEV ? DEV : 'https://identitytoolkit.googleapis.com';
+  var FS = DEV ? DEV : 'https://firestore.googleapis.com';
+
+  function msg(id, t, k) { var e = $(id); e.textContent = t || ''; e.className = 'msg ' + (k || ''); }
+  function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} }
+  function b64u(buf) { var a = new Uint8Array(buf), s = ''; for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function b64uStr(s) { return b64u(new TextEncoder().encode(s)); }
+  function fromB64u(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function download(name, text) { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+  function copy(t) { try { navigator.clipboard.writeText(t); } catch (e) { var x = document.createElement('textarea'); x.value = t; document.body.appendChild(x); x.select(); document.execCommand('copy'); x.remove(); } }
+  function devNorm(s) { var r = String(s || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase(); return r.length === 12 ? r.replace(/(.{4})(?=.)/g, '$1-') : ''; }
+  function rndId() { var A = 'abcdefghijklmnopqrstuvwxyz0123456789', r = new Uint8Array(24); crypto.getRandomValues(r); var s = ''; for (var i = 0; i < 24; i++) s += A[r[i] % A.length]; return s; }
+  function dstr(ms) { return ms ? new Date(ms).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
+
+  /* ---------- claves ---------- */
+  function setKeyState() {
+    $('k-state').className = 'badge ' + (priv ? 'ok' : 'warn');
+    $('k-state').textContent = priv ? 'Clave cargada ✔ (' + pubJwk.x.slice(0, 6) + '…)' : 'Sin clave cargada';
+    if (pubJwk) { $('k-pub').hidden = false; $('k-pubtxt').value = JSON.stringify({ kty: 'EC', crv: 'P-256', x: pubJwk.x, y: pubJwk.y }); }
+  }
+  async function useKey(jwk) {
+    var p = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+    priv = p; pubJwk = { x: jwk.x, y: jwk.y }; setKeyState();
+  }
+  $('k-new').onclick = async function () {
+    if (priv && !confirm('Ya hay una clave cargada. Si creas otra, las licencias firmadas con la anterior dejarán de funcionar al publicar la nueva clave pública. ¿Continuar?')) return;
+    try {
+      var kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+      var jwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+      var keep = { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, d: jwk.d, ext: true, key_ops: ['sign'] };
+      download('motorkan-clave-privada.json', JSON.stringify(keep));
+      await useKey(keep);
+      msg('k-msg', 'Claves creadas. Se descargó motorkan-clave-privada.json: guárdalo en un lugar seguro. Ahora copia la clave pública a cloud-config.js.', 'ok');
+    } catch (e) { msg('k-msg', 'No se pudieron crear las claves: ' + e.message, 'bad'); }
+  };
+  $('k-file').onchange = function (e) {
+    var f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+    var r = new FileReader();
+    r.onload = async function () {
+      try { var j = JSON.parse(r.result); if (!j.d || !j.x || !j.y) throw new Error('El archivo no es una clave privada de MotorKan'); await useKey({ kty: 'EC', crv: 'P-256', x: j.x, y: j.y, d: j.d, ext: true, key_ops: ['sign'] }); msg('k-msg', 'Clave privada cargada.', 'ok'); }
+      catch (er) { msg('k-msg', er.message, 'bad'); }
+    };
+    r.readAsText(f);
+  };
+  $('k-copy').onclick = function () { copy($('k-pubtxt').value); msg('k-msg', 'Clave pública copiada.', 'ok'); };
+
+  /* ---------- Firebase por REST ---------- */
+  function val(v) {
+    if (v === null) return { nullValue: null };
+    if (v instanceof Date) return { timestampValue: v.toISOString() };
+    if (typeof v === 'number') return { integerValue: String(Math.round(v)) };
+    return { stringValue: String(v) };
+  }
+  function unval(o) {
+    if (!o) return null;
+    if ('stringValue' in o) return o.stringValue;
+    if ('integerValue' in o) return Number(o.integerValue);
+    if ('doubleValue' in o) return Number(o.doubleValue);
+    if ('timestampValue' in o) return Date.parse(o.timestampValue);
+    if ('nullValue' in o) return null;
+    if ('booleanValue' in o) return o.booleanValue;
+    return null;
+  }
+  function parseCfg(t) {
+    var k = /apiKey\s*["']?\s*[:=]\s*["']([^"']+)["']/.exec(t), p = /projectId\s*["']?\s*[:=]\s*["']([^"']+)["']/.exec(t);
+    return { apiKey: k ? k[1] : '', projectId: p ? p[1] : '' };
+  }
+  async function login() {
+    var c = parseCfg($('f-cfg').value);
+    if (!c.apiKey || !c.projectId) { var sv = JSON.parse(ls('mk-fb') || '{}'); c = { apiKey: c.apiKey || sv.apiKey || '', projectId: c.projectId || sv.projectId || '' }; }
+    var mail = $('f-mail').value.trim(), pass = $('f-pass').value || adminPass;
+    if (!c.apiKey || !c.projectId) throw new Error('Pega el bloque firebaseConfig (apiKey y projectId).');
+    if (!mail || !pass) throw new Error('Escribe el correo y la contraseña del administrador.');
+    var r = await fetch(IDT + '/v1/accounts:signInWithPassword?key=' + encodeURIComponent(c.apiKey), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: mail, password: pass, returnSecureToken: true }) });
+    var j = await r.json();
+    if (!r.ok) throw new Error(({ INVALID_PASSWORD: 'Contraseña incorrecta.', EMAIL_NOT_FOUND: 'No existe esa cuenta.', INVALID_LOGIN_CREDENTIALS: 'Correo o contraseña incorrectos.', INVALID_EMAIL: 'Correo inválido.' })[(j.error && j.error.message || '').split(' ')[0]] || (j.error && j.error.message) || 'No se pudo iniciar sesión.');
+    fb = { apiKey: c.apiKey, projectId: c.projectId, token: j.idToken, uid: j.localId };
+    adminPass = pass;
+    ls('mk-fb', JSON.stringify({ apiKey: c.apiKey, projectId: c.projectId, mail: mail }));
+    return fb;
+  }
+  async function api(method, path, body, retry) {
+    if (!fb) throw new Error('Conéctate al servidor primero (paso 2).');
+    var r = await fetch(FS + '/v1/projects/' + fb.projectId + '/databases/(default)/documents/' + path, { method: method, headers: { authorization: 'Bearer ' + fb.token, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 401 && !retry && adminPass) { await login(); return api(method, path, body, true); }
+    var j = await r.json().catch(function () { return {}; });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(r.status === 403 ? 'Sin permiso: revisa que tu UID esté en las reglas (isAdmin).' : ((j.error && j.error.message) || 'Error ' + r.status));
+    return j;
+  }
+  function docOf(j) { if (!j || !j.fields) return null; var o = {}; Object.keys(j.fields).forEach(function (k) { o[k] = unval(j.fields[k]); }); return o; }
+  async function getLic(id) { return docOf(await api('GET', 'licenses/' + encodeURIComponent(id))); }
+  async function putLic(id, obj, mask) {
+    var fields = {}; Object.keys(obj).forEach(function (k) { if (obj[k] !== undefined) fields[k] = val(obj[k]); });
+    var q = '';
+    if (mask) q = '?' + mask.map(function (k) { return 'updateMask.fieldPaths=' + encodeURIComponent(k); }).join('&');
+    return api('PATCH', 'licenses/' + encodeURIComponent(id) + q, { fields: fields });
+  }
+  $('f-go').onclick = async function () {
+    msg('f-msg', 'Conectando…');
+    try { await login(); $('f-state').className = 'badge ok'; $('f-state').textContent = 'Conectado ✔'; msg('f-msg', 'Conectado al proyecto ' + fb.projectId + '.', 'ok'); }
+    catch (e) { $('f-state').className = 'badge bad'; $('f-state').textContent = 'Sin conectar'; msg('f-msg', e.message, 'bad'); }
+  };
+
+  /* ---------- nueva licencia ---------- */
+  $('n-valid').onchange = function () { $('n-date-l').hidden = $('n-valid').value !== 'date'; };
+  async function sign(payload) {
+    var p = b64uStr(JSON.stringify(payload)), data = new TextEncoder().encode('MK1.' + p);
+    var sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, priv, data);
+    return 'MK1.' + p + '.' + b64u(sig);
+  }
+  function history() { try { return JSON.parse(ls('mk-hist') || '[]'); } catch (e) { return []; } }
+  function addHist(h) { var a = history().filter(function (x) { return x.l !== h.l; }); a.unshift(h); ls('mk-hist', JSON.stringify(a.slice(0, 80))); drawHist(); }
+  function drawHist() {
+    var a = history(); var box = $('a-hist'); box.innerHTML = '';
+    if (!a.length) { box.textContent = 'Todavía no has generado licencias en este navegador.'; return; }
+    a.forEach(function (h) { var b = document.createElement('button'); b.textContent = h.n + ' · ' + h.d + ' · ' + new Date(h.t).toLocaleDateString('es'); b.onclick = function () { $('a-id').value = h.l; $('a-find').click(); window.scrollTo(0, $('c-adm').offsetTop); }; box.appendChild(b); });
+  }
+  $('n-go').onclick = async function () {
+    try {
+      if (!priv) throw new Error('Primero crea o carga tu clave privada (paso 1).');
+      var dev = devNorm($('n-dev').value); if (!dev) throw new Error('El ID del equipo debe tener 12 letras/números (XXXX-XXXX-XXXX).');
+      var name = $('n-name').value.trim(); if (!name) throw new Error('Escribe el nombre del cliente o taller.');
+      var days = Math.max(1, Math.round(Number($('n-days').value) || 30));
+      var url = $('n-url').value.trim(); if (!/^https?:\/\//.test(url)) throw new Error('Escribe la dirección de la app (https://…).');
+      ls('mk-url', url);
+      var now = Date.now(), id = rndId();
+      var payload = { v: 1, l: id, d: dev, n: name, p: 'local', i: now, x: now + days * DAY };
+      var code = await sign(payload);
+      var link = url.replace(/#.*$/, '').replace(/\?.*$/, '') + '#activar=' + code;
+      var reg = '';
+      if (fb) {
+        var vu = null;
+        if ($('n-valid').value === 'date') { if (!$('n-date').value) throw new Error('Elige la fecha de vencimiento de la licencia.'); vu = new Date($('n-date').value + 'T23:59:59'); }
+        var doc = { dev: dev, name: name, plan: 'local', status: 'active', issuedAt: new Date(now) };
+        if (vu) doc.validUntil = vu;
+        await putLic(id, doc);
+        reg = ' Registrada en el servidor.';
+      } else reg = ' ATENCIÓN: no está registrada en el servidor (no hay conexión con Firebase); valdrá hasta el vencimiento del código (' + dstr(payload.x) + ') y no podrás suspenderla.';
+      $('n-link').textContent = link; $('n-code').textContent = code; $('n-out').hidden = false;
+      var wa = String($('n-wa').value).replace(/\D/g, '');
+      var text = 'Hola ' + name + ', aquí está tu licencia de MotorKan 🔧\n\n1) Abre este enlace en el equipo donde instalaste la app:\n' + link + '\n\nSi no se activa sola, abre la app → Configuración → Licencia → pega este código:\n' + code + '\n\nGracias por tu compra.';
+      $('n-wa-btn').href = 'https://wa.me/' + wa + '?text=' + encodeURIComponent(text);
+      $('n-cl').onclick = function () { copy(link); msg('n-msg', 'Enlace copiado.', 'ok'); };
+      $('n-cc').onclick = function () { copy(code); msg('n-msg', 'Código copiado.', 'ok'); };
+      addHist({ l: id, n: name, d: dev, t: now });
+      msg('n-msg', 'Licencia generada para ' + name + '.' + reg, fb ? 'ok' : 'bad');
+    } catch (e) { msg('n-msg', e.message, 'bad'); }
+  };
+
+  /* ---------- administrar ---------- */
+  function licIdFrom(s) {
+    s = String(s || '').trim();
+    var m = /MK1\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+/.exec(s.replace(/\s+/g, ''));
+    if (m) { try { return JSON.parse(new TextDecoder().decode(fromB64u(m[1]))).l || ''; } catch (e) { return ''; } }
+    return s.replace(/[^a-z0-9]/gi, '');
+  }
+  function drawLic() {
+    if (!cur) { $('a-box').hidden = true; return; }
+    var d = cur.doc, st = d.status || 'active';
+    $('a-box').hidden = false;
+    $('a-kv').innerHTML = '';
+    [['Licencia', cur.id], ['Cliente', d.name || '—'], ['Equipo', d.dev || '—'], ['Estado', st === 'active' ? '🟢 Activa' : st === 'suspended' ? '🟠 Suspendida' : '🔴 Revocada'],
+      ['Vence', d.validUntil ? dstr(d.validUntil) : 'Permanente'], ['Emitida', dstr(d.issuedAt)], ['Última conexión', d.lastSeen ? new Date(d.lastSeen).toLocaleString('es') : 'nunca'], ['Último equipo', d.lastDev || '—']].forEach(function (r) {
+      var b = document.createElement('b'), v = document.createElement('span'); b.textContent = r[0]; v.textContent = r[1]; $('a-kv').appendChild(b); $('a-kv').appendChild(v);
+    });
+  }
+  $('a-find').onclick = async function () {
+    try {
+      var id = licIdFrom($('a-id').value); if (!id) throw new Error('Pega el código o el ID de licencia.');
+      msg('a-msg', 'Buscando…');
+      var d = await getLic(id);
+      if (!d) { cur = null; drawLic(); throw new Error('No existe esa licencia en el servidor.'); }
+      cur = { id: id, doc: d }; drawLic(); msg('a-msg', '', '');
+    } catch (e) { msg('a-msg', e.message, 'bad'); }
+  };
+  async function upd(patch, ok) {
+    try {
+      if (!cur) return;
+      await putLic(cur.id, patch, Object.keys(patch));
+      cur.doc = await getLic(cur.id); drawLic(); msg('a-msg', ok, 'ok');
+    } catch (e) { msg('a-msg', e.message, 'bad'); }
+  }
+  $('a-susp').onclick = function () { upd({ status: 'suspended' }, 'Licencia suspendida. La app del cliente pasa a solo lectura en su próximo chequeo.'); };
+  $('a-react').onclick = function () { upd({ status: 'active' }, 'Licencia reactivada.'); };
+  $('a-rev').onclick = function () { if (confirm('¿Revocar esta licencia definitivamente?')) upd({ status: 'revoked' }, 'Licencia revocada.'); };
+  $('a-ext').onclick = function () { if (!$('a-date').value) { msg('a-msg', 'Elige la fecha.', 'bad'); return; } upd({ validUntil: new Date($('a-date').value + 'T23:59:59') }, 'Fecha de vencimiento actualizada.'); };
+  $('a-perm').onclick = function () { upd({ validUntil: undefined }, 'La licencia ahora es permanente.'); };
+  $('a-chdev').onclick = function () { var d = devNorm($('a-dev').value); if (!d) { msg('a-msg', 'El ID debe tener 12 letras/números.', 'bad'); return; } upd({ dev: d }, 'Licencia movida al equipo ' + d + '. Genera un código nuevo en el paso 3 para ese equipo.'); };
+
+  /* ---------- arranque ---------- */
+  (function init() {
+    var u = ls('mk-url'); $('n-url').value = u || (location.protocol.indexOf('http') === 0 ? location.origin + '/' : '');
+    var sv = JSON.parse(ls('mk-fb') || '{}');
+    if (sv.projectId) { $('f-cfg').value = 'apiKey: "' + (sv.apiKey || '') + '", projectId: "' + sv.projectId + '"'; $('f-mail').value = sv.mail || ''; }
+    if (!(window.crypto && crypto.subtle)) msg('k-msg', 'Este navegador no permite firmar aquí. Abre este archivo con Chrome o Edge.', 'bad');
+    drawHist();
+    window.__gen = { get priv() { return !!priv; }, get fb() { return fb; } };
+  })();
+})();
+</script>
+</body>
+</html>
