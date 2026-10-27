@@ -104,6 +104,23 @@ details summary{cursor:pointer;color:var(--mu);font-size:13px}
     </div>
   </div>
 
+  <!-- 3b. CÓDIGOS DE TALLER EN LA NUBE -->
+  <div class="card" id="c-shopcode">
+    <h2>3b · Código para crear un taller en la nube</h2>
+    <div class="sub" style="margin-bottom:8px">Sin este código nadie puede crear un taller de prueba en la nube (evita cuentas masivas y robots). Cada código sirve para un solo taller. Requiere estar conectado (paso 2).</div>
+    <div class="row">
+      <label>Cliente / taller (solo para tu control)<input id="sc-name" placeholder="Taller Los Andes"></label>
+      <label>Días para usarlo<input id="sc-days" type="number" min="1" max="90" value="14"></label>
+      <label>WhatsApp (opcional)<input id="sc-wa" inputmode="numeric" placeholder="584141234567"></label>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="p" id="sc-go">Generar código de taller</button></div>
+    <div class="msg" id="sc-msg"></div>
+    <div id="sc-out" hidden>
+      <div class="out" id="sc-code"></div>
+      <div class="row" style="margin-top:10px"><button id="sc-cc">Copiar código</button><a class="btn ok" id="sc-wa-btn" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a></div>
+    </div>
+  </div>
+
   <!-- 4. ADMINISTRAR -->
   <div class="card" id="c-adm">
     <h2>4 · Administrar una licencia</h2>
@@ -189,6 +206,7 @@ details summary{cursor:pointer;color:var(--mu);font-size:13px}
   function val(v) {
     if (v === null) return { nullValue: null };
     if (v instanceof Date) return { timestampValue: v.toISOString() };
+    if (typeof v === 'boolean') return { booleanValue: v };
     if (typeof v === 'number') return { integerValue: String(Math.round(v)) };
     return { stringValue: String(v) };
   }
@@ -287,6 +305,24 @@ details summary{cursor:pointer;color:var(--mu);font-size:13px}
       addHist({ l: id, n: name, d: dev, t: now });
       msg('n-msg', 'Licencia generada para ' + name + '.' + reg, fb ? 'ok' : 'bad');
     } catch (e) { msg('n-msg', e.message, 'bad'); }
+  };
+
+  /* ---------- código de taller en la nube ---------- */
+  $('sc-go').onclick = async function () {
+    try {
+      if (!fb) throw new Error('Conéctate al servidor primero (paso 2).');
+      var name = $('sc-name').value.trim(); if (!name) throw new Error('Escribe el nombre del cliente o taller.');
+      var days = Math.min(90, Math.max(1, Math.round(Number($('sc-days').value) || 14)));
+      var ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = new Uint32Array(8), code = 'MKN-';
+      crypto.getRandomValues(r); for (var i = 0; i < 8; i++) code += ABC[r[i] % ABC.length];
+      await api('PATCH', 'shopCodes/' + code, { fields: { used: val(false), name: val(name), createdAt: val(new Date()), expiresAt: val(new Date(Date.now() + days * DAY)) } });
+      $('sc-code').textContent = code; $('sc-out').hidden = false;
+      var wa = String($('sc-wa').value).replace(/\D/g, '');
+      var text = 'Hola ' + name + ', este es tu código para activar la nube de MotorKan:\n\n' + code + '\n\nEn la app: Configuración → Nube → Activar. Vale por ' + days + ' días y se usa una sola vez.';
+      $('sc-wa-btn').href = 'https://wa.me/' + wa + '?text=' + encodeURIComponent(text);
+      $('sc-cc').onclick = function () { copy(code); msg('sc-msg', 'Código copiado.', 'ok'); };
+      msg('sc-msg', 'Código creado para ' + name + ' (vale ' + days + ' días).', 'ok');
+    } catch (e) { msg('sc-msg', e.message, 'bad'); }
   };
 
   /* ---------- administrar ---------- */
